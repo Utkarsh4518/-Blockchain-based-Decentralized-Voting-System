@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  # 1. PostgreSQL Projection Layer Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: voting-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PGUSER:-voting}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-password}
+      POSTGRES_DB: ${PGDATABASE:-votingdb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  # 2. Local Ganache Ethereum Node
+  ganache:
+    image: trufflesuite/ganache:latest
+    container_name: voting-ganache
+    restart: unless-stopped
+    command: [
+      "--server.host", "0.0.0.0",
+      "--server.port", "8545",
+      "--wallet.accounts", "0x249f947bdfe9d5d1e063d9b5f29277a8f81618087ee554732c81db6dd2100efd,1000000000000000000000", "0x65ecdf42cbf966992adfc3c85d9a026eb08b6b8ce77014c2a7c4aa438ae12e1c,1000000000000000000000"
+    ]
+    ports:
+      - "8545:8545"
+
+  # 3. Node.js/Express Backend REST API & Event Listener
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: voting-backend
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      ETH_RPC_URL: http://ganache:8545
+      CONTRACT_NETWORK: ganache
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${PGUSER:-voting}
+      PGPASSWORD: ${PGPASSWORD:-password}
+      PGDATABASE: ${PGDATABASE:-votingdb}
+      ADMIN_PRIVATE_KEY: ${ADMIN_PRIVATE_KEY:-0x249f947bdfe9d5d1e063d9b5f29277a8f81618087ee554732c81db6dd2100efd}
+      VOTER_PRIVATE_KEY: ${VOTER_PRIVATE_KEY:-0x65ecdf42cbf966992adfc3c85d9a026eb08b6b8ce77014c2a7c4aa438ae12e1c}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-3600}
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./contracts/deployments:/app/contracts/deployments:ro
+    depends_on:
+      - postgres
+      - ganache
+
+  # 4. React Frontend Web Portal
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:4000}
+    container_name: voting-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres-data:
