@@ -76,4 +76,24 @@ export const startElection = async (
   }
 };
 
+export const endElection = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const onchainElectionId = Number(req.params.id);
+    if (Number.isNaN(onchainElectionId)) {
+      return res.status(400).json({ error: "INVALID_ELECTION_ID" });
+    }
+
+    await blockchainService.endElection(onchainElectionId);
+    return res
+      .status(200)
+      .json({ onchainElectionId, status: "ended" });
+  } catch (err) {
+    next(err);
+  }
+};
+
 

@@ -50,8 +50,28 @@ const AdminDashboard: React.FC<Props> = ({ token, onLogout }) => {
       await apiClient.post(
         `/admin/elections/${lastCreatedElectionId}/start`
       );
+      setStartError("Election started successfully.");
     } catch (err: any) {
       setStartError(err?.message ?? "Failed to start election.");
+    } finally {
+      setStartLoading(false);
+    }
+  };
+
+  const handleEndElection = async () => {
+    if (!lastCreatedElectionId) {
+      setStartError("No election ID available. Create an election first.");
+      return;
+    }
+    setStartError(null);
+    setStartLoading(true);
+    try {
+      await apiClient.post(
+        `/admin/elections/${lastCreatedElectionId}/end`
+      );
+      setStartError("Election ended successfully.");
+    } catch (err: any) {
+      setStartError(err?.message ?? "Failed to end election.");
     } finally {
       setStartLoading(false);
     }
@@ -76,20 +96,40 @@ const AdminDashboard: React.FC<Props> = ({ token, onLogout }) => {
           <ElectionForm onCreate={handleCreateElection} />
 
           <div className="card">
-            <h2>Start Election</h2>
+            <h2>Start / Stop Election</h2>
             <p className="muted">
               Last created on-chain election ID:{" "}
               {lastCreatedElectionId ?? "none yet"}
             </p>
-            {startError && <p className="error">{startError}</p>}
-            <button
-              type="button"
-              className="btn primary"
-              onClick={handleStartElection}
-              disabled={startLoading || !lastCreatedElectionId}
-            >
-              {startLoading ? "Starting..." : "Start Last Election"}
-            </button>
+            {startError && (
+              <p
+                className="error"
+                style={{
+                  color: startError.includes("successfully") ? "green" : "red",
+                }}
+              >
+                {startError}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={handleStartElection}
+                disabled={startLoading || !lastCreatedElectionId}
+              >
+                {startLoading ? "Starting..." : "Start Last Election"}
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={handleEndElection}
+                disabled={startLoading || !lastCreatedElectionId}
+                style={{ backgroundColor: "#dc3545", color: "white" }}
+              >
+                {startLoading ? "Ending..." : "End Last Election"}
+              </button>
+            </div>
           </div>
         </div>
 

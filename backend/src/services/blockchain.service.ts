@@ -132,6 +132,16 @@ class BlockchainService {
     }
   }
 
+  async endElection(electionId: number): Promise<void> {
+    try {
+      const signer: any = this.contract.connect(this.adminWallet);
+      const tx = await signer.endElection(electionId);
+      await tx.wait(1);
+    } catch (err: any) {
+      this.handleEthersError(err);
+    }
+  }
+
   async vote(
     electionId: number,
     candidateId: number
