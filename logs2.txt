@@ -1,0 +1,48 @@
+Ganache CLI v6.12.2 (ganache-core: 2.13.2)
+(node:1) [DEP0005] DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+Available Accounts
+==================
+(0) 0xe36C81006F4F0eBfC5D52d979613d4C0614dD9De (1000 ETH)
+(1) 0x9A5f71F896aCb650B72AE6d1aAF3D9d6a3758235 (1000 ETH)
+(2) 0xd9Da1F04aa0a6e57A0D89079a956D6036fBEF71e (1000 ETH)
+(3) 0xD18FB8bD49D8B7f8C0017952e1E9B0799B77f176 (1000 ETH)
+(4) 0xC1b62E087A08C5129AB76062064F0D825a35C930 (1000 ETH)
+(5) 0x37955C69C20ED4522Bcd836850ACD1245c3786D5 (1000 ETH)
+(6) 0x2457193fC431b835f1a6B6b7660D66A7767Ae2b9 (1000 ETH)
+(7) 0x263D5f2d3C6427643A2456d0c99aC13d3079Cc1F (1000 ETH)
+(8) 0x159729b6E06040112daAEab85C7D9f6b497ea0b4 (1000 ETH)
+(9) 0xF6e4884E2730773803DEd990A5dCD519f647d648 (1000 ETH)
+
+Private Keys
+==================
+(0) 0x2d612ae751d9d8fb254cc6bf27ba75322836667b315b0ba651de056425ed4651
+(1) 0x7dda9d4c3a3079563fee884b8553ae12cd97f6988fb3fea5d89d8b88c5143db2
+(2) 0xdaaebde9513c3a2d9942dc6644090bf6156fc50b3f3ba364e94ef9fde4991201
+(3) 0x58b4474991fdc8e2c094d6426076f381d06347cf4ff1c0e7958225624929d1c4
+(4) 0x21d5255eadb347ee44714907bfd154e15e8990f67675bb11e5bbd8784acb7b3f
+(5) 0xe7c89749f87a3f6f377c7a28cb014c16c0ec1b8450120a9ad221131d33aef086
+(6) 0xdbf9d1bbf95d53da8338fa780beffdddf2d3f9aad6c6c0a54f0d09cecc7180a3
+(7) 0xd7d4149052752cc9d9d0a161c837ad229b88eebad0bc9f95b650404c56c6d7a3
+(8) 0x40d8431a19e09c23b5c70af18dffd469e9078119332df9d8a96945adbb81cfe9
+(9) 0xea3fa7f7e2673429e66c5ff66fb1230a53c174a214217986916f017cbe72587e
+
+HD Wallet
+==================
+Mnemonic:      box dilemma match capital actress range party rhythm sudden squirrel cinnamon shallow
+Base HD Path:  m/44'/60'/0'/0/{account_index}
+
+Gas Price
+==================
+20000000000
+
+Gas Limit
+==================
+6721975
+
+Call Gas Limit
+==================
+9007199254740991
+
+Listening on 0.0.0.0:8545
