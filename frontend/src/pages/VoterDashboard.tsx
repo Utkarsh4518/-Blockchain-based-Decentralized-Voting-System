@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { ethers } from "ethers";
 import { apiClient, setAuthToken } from "../api/client";
 
 interface Props {
@@ -21,6 +22,7 @@ interface ElectionDetail {
     startTime: number;
     endTime: number;
     state: number;
+    contractAddress: string;
     candidates: {
         id: number;
         name: string;
@@ -42,6 +44,7 @@ const VoterDashboard: React.FC<Props> = ({ token, onLogout }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [txHash, setTxHash] = useState<string | null>(null);
+    const [receiptKey, setReceiptKey] = useState<string | null>(null);
 
     useEffect(() => {
         setAuthToken(token);
@@ -79,7 +82,7 @@ const VoterDashboard: React.FC<Props> = ({ token, onLogout }) => {
     };
 
     const handleVote = async () => {
-        if (selectedElectionId === null || selectedCandidateId === null) return;
+        if (selectedElectionId === null || selectedCandidateId === null || !electionDetail) return;
         const privateKey = window.localStorage.getItem("voter_private_key");
         if (!privateKey) {
             setError("No voter wallet key found locally. Please register or restore your wallet credentials.");
@@ -88,14 +91,28 @@ const VoterDashboard: React.FC<Props> = ({ token, onLogout }) => {
         try {
             setLoading(true);
             setError(null);
+
+            // 1) Construct EIP-191 packed hash locally
+            const messageHash = ethers.solidityPackedKeccak256(
+                ["uint256", "uint256", "address"],
+                [selectedElectionId, selectedCandidateId, electionDetail.contractAddress]
+            );
+
+            // 2) Sign the hash locally using the voter's private key (0 gas!)
+            const wallet = new ethers.Wallet(privateKey);
+            const signature = await wallet.signMessage(ethers.getBytes(messageHash));
+
+            // 3) Submit the signature to the backend relayer
             const res = await apiClient.post(
                 `/voter/elections/${selectedElectionId}/vote`,
                 {
                     candidateId: selectedCandidateId,
-                    privateKey,
+                    signature,
                 }
             );
+
             setTxHash(res.data.txHash);
+            setReceiptKey(res.data.receiptKey);
         } catch (err: any) {
             setError(err?.response?.data?.error || "Failed to cast vote");
         } finally {
@@ -219,9 +236,17 @@ const VoterDashboard: React.FC<Props> = ({ token, onLogout }) => {
                                         padding: "1rem",
                                         border: "1px solid green",
                                         borderRadius: "4px",
+                                        backgroundColor: "#f6fff6",
                                     }}
                                 >
                                     <strong>Vote successfully cast!</strong>
+                                    <br />
+                                    <br />
+                                    <strong>Cryptographic Ballot Receipt (E2E-V):</strong>
+                                    <br />
+                                    <code style={{ wordBreak: "break-all", backgroundColor: "#e2f2e2", padding: "0.2rem 0.5rem", borderRadius: "4px", display: "inline-block", marginTop: "0.2rem", color: "#1e5a1e" }}>
+                                        {receiptKey}
+                                    </code>
                                     <br />
                                     <br />
                                     Transaction Hash:

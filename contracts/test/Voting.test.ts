@@ -25,6 +25,9 @@ describe("Voting", function () {
     const txStart = await voting.connect(owner).startElection(electionId);
     await txStart.wait();
 
+    const txRegister = await voting.connect(owner).registerVoter(voter.address);
+    await txRegister.wait();
+
     const txVote1 = await voting.connect(voter).vote(electionId, 1);
     await txVote1.wait();
 

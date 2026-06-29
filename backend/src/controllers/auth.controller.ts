@@ -34,9 +34,9 @@ export const register = async (
     // 1) Generate a new random Ethereum wallet for the voter
     const wallet = ethers.Wallet.createRandom();
 
-    // 2) Fund this new wallet on-chain from the admin wallet (which starts with 1000 ETH in Ganache)
-    // This serves as the payment/gas funding mechanism.
-    const fundingTxHash = await blockchainService.fundVoterWallet(wallet.address, "1.0");
+    // 2) Register this new wallet address as an eligible voter on-chain.
+    // The transaction is sent and sponsored by the Admin wallet.
+    const registerTxHash = await blockchainService.registerVoter(wallet.address);
 
     // 3) Create user in database. Note that we DO NOT store their private key or wallet address off-chain
     // to preserve 100% database anonymity and prevent mapping emails to on-chain addresses.
@@ -55,7 +55,7 @@ export const register = async (
         address: wallet.address,
         privateKey: wallet.privateKey,
       },
-      fundingTxHash,
+      registerTxHash,
     });
   } catch (err) {
     next(err);

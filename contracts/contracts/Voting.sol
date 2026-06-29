@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract Voting is Ownable {
     enum ElectionState {
@@ -22,9 +23,12 @@ contract Voting is Ownable {
 
     uint256 public nextElectionId;
 
+    mapping(address => bool) public isEligibleVoter;
     mapping(uint256 => Election) private elections;
     mapping(uint256 => mapping(uint256 => uint256)) private candidateVotes;
     mapping(uint256 => mapping(address => bool)) private _hasVoted;
+
+    event VoterRegistered(address indexed voter);
 
     event ElectionCreated(
         uint256 indexed electionId,
@@ -101,7 +105,14 @@ contract Voting is Ownable {
         emit ElectionEnded(electionId);
     }
 
-    function vote(uint256 electionId, uint256 candidateId) external {
+    function registerVoter(address voter) external onlyOwner {
+        require(voter != address(0), "Invalid address");
+        require(!isEligibleVoter[voter], "Already registered");
+        isEligibleVoter[voter] = true;
+        emit VoterRegistered(voter);
+    }
+
+    function _vote(uint256 electionId, uint256 candidateId, address voter) internal {
         Election storage e = elections[electionId];
         require(e.exists, "Election not found");
         require(e.state == ElectionState.Active, "Election not active");
@@ -109,15 +120,44 @@ contract Voting is Ownable {
             block.timestamp >= e.startTime && block.timestamp <= e.endTime,
             "Not in voting window"
         );
-        require(!_hasVoted[electionId][msg.sender], "Already voted");
+        require(isEligibleVoter[voter], "Not an eligible voter");
+        require(!_hasVoted[electionId][voter], "Already voted");
         require(_isValidCandidate(e, candidateId), "Invalid candidate");
 
-        _hasVoted[electionId][msg.sender] = true;
+        _hasVoted[electionId][voter] = true;
         candidateVotes[electionId][candidateId] += 1;
         e.totalVotes += 1;
 
-        emit VoterVoted(electionId, msg.sender);
+        emit VoterVoted(electionId, voter);
         emit VoteCast(electionId, candidateId);
+    }
+
+    function vote(uint256 electionId, uint256 candidateId) external {
+        _vote(electionId, candidateId, msg.sender);
+    }
+
+    /**
+     * @notice Casts a vote using a cryptographic ECDSA signature from the voter.
+     * Allows gasless voting, where the relayer pays the transaction fees.
+     */
+    function voteWithSignature(
+        uint256 electionId,
+        uint256 candidateId,
+        bytes calldata signature
+    ) external {
+        // Construct the EIP-191 signed message hash (matching ethers.js signMessage)
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(electionId, candidateId, address(this))
+        );
+        bytes32 ethSignedMessageHash = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+        );
+
+        // Recover the voter's address from the signature
+        address voter = ECDSA.recover(ethSignedMessageHash, signature);
+
+        // Record the vote on-chain
+        _vote(electionId, candidateId, voter);
     }
 
     function getElection(

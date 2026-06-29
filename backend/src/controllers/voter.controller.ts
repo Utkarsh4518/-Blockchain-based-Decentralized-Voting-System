@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
+import crypto from "crypto";
 import { blockchainService } from "../services/blockchain.service";
+import { loadContractConfig } from "../config/contract";
 import { electionRepository } from "../repositories/election.repository";
 import { candidateRepository } from "../repositories/candidate.repository";
 import { voteRepository } from "../repositories/vote.repository";
@@ -74,6 +76,8 @@ export const getElection = async (
       }
     }
 
+    const { address: contractAddress } = loadContractConfig();
+
     return res.status(200).json({
       id: onchainElection.id,
       name: onchainElection.name,
@@ -81,6 +85,7 @@ export const getElection = async (
       endTime: onchainElection.endTime,
       state: Number(onchainElection.state),
       candidates: candidatesList,
+      contractAddress,
     });
   } catch (err) {
     next(err);
@@ -88,8 +93,9 @@ export const getElection = async (
 };
 
 /**
- * Casts a vote on-chain and records the participation off-chain.
- * Signs the transaction using the voter's private key passed in the request body.
+ * Casts a vote on-chain using ECDSA meta-transactions (gasless voting).
+ * Signs the transaction off-chain on the client and passes the signature.
+ * Returns a secure cryptographic receipt for vote verification (E2E-V).
  */
 export const castVote = async (
   req: Request,
@@ -103,13 +109,13 @@ export const castVote = async (
     }
 
     const onchainElectionId = Number(req.params.id);
-    const { candidateId, privateKey } = req.body;
+    const { candidateId, signature } = req.body;
 
     if (
       Number.isNaN(onchainElectionId) ||
       typeof candidateId !== "number" ||
-      typeof privateKey !== "string" ||
-      privateKey.length === 0
+      typeof signature !== "string" ||
+      signature.length === 0
     ) {
       return res.status(400).json({ error: "INVALID_PAYLOAD" });
     }
@@ -128,11 +134,11 @@ export const castVote = async (
     // 2) Record the voter participation off-chain (no link to candidate ID)
     await voteRepository.recordUserParticipation(election.id, user.id);
 
-    // 3) Broadcast the vote on-chain using the voter's private key (self-paying gas!)
-    const { txHash, blockNumber } = await blockchainService.voteWithKey(
+    // 3) Broadcast the vote on-chain using the relayer (adminWallet sponsors gas!)
+    const { txHash, blockNumber } = await blockchainService.voteWithSignature(
       onchainElectionId,
       candidateId,
-      privateKey
+      signature
     );
 
     // 4) Insert the anonymized vote transaction into the DB
@@ -143,7 +149,18 @@ export const castVote = async (
       blockNumber,
     });
 
-    return res.status(202).json({ electionId: onchainElectionId, candidateId, txHash });
+    // 5) Generate a secure cryptographic receipt key for E2E verification
+    const receiptKey = crypto
+      .createHash("sha256")
+      .update(`${user.id}-${candidateId}-${txHash}`)
+      .digest("hex");
+
+    return res.status(202).json({
+      electionId: onchainElectionId,
+      candidateId,
+      txHash,
+      receiptKey,
+    });
   } catch (err) {
     next(err);
   }

@@ -34,13 +34,14 @@ class BlockchainService {
     return this.voterWallet.address;
   }
 
-  async fundVoterWallet(voterAddress: string, amountEth: string = "0.5"): Promise<string> {
+  async registerVoter(voterAddress: string): Promise<string> {
     try {
-      const tx = await this.adminWallet.sendTransaction({
-        to: voterAddress,
-        value: ethers.parseEther(amountEth),
-      });
-      await tx.wait(1);
+      const signer: any = this.contract.connect(this.adminWallet);
+      const tx = await signer.registerVoter(voterAddress);
+      const receipt = await tx.wait(1);
+      if (!receipt) {
+        throw new Error("No receipt returned");
+      }
       return tx.hash;
     } catch (err: any) {
       this.handleEthersError(err);
@@ -169,6 +170,29 @@ class BlockchainService {
       const voterWallet = new ethers.Wallet(privateKey, this.provider);
       const signer: any = this.contract.connect(voterWallet);
       const tx = await signer.vote(electionId, candidateId);
+      const receipt = await tx.wait(1);
+      if (!receipt) {
+        throw new Error("No receipt returned");
+      }
+      const blockNumber = Number(receipt.blockNumber ?? 0n);
+      return { txHash: tx.hash, blockNumber };
+    } catch (err: any) {
+      this.handleEthersError(err);
+    }
+  }
+
+  /**
+   * Casts a vote using ECDSA meta-transactions.
+   * The Relayer (adminWallet) submits the signature on-chain and sponsors the gas.
+   */
+  async voteWithSignature(
+    electionId: number,
+    candidateId: number,
+    signature: string
+  ): Promise<{ txHash: string; blockNumber: number }> {
+    try {
+      const signer: any = this.contract.connect(this.adminWallet);
+      const tx = await signer.voteWithSignature(electionId, candidateId, signature);
       const receipt = await tx.wait(1);
       if (!receipt) {
         throw new Error("No receipt returned");

@@ -3,8 +3,9 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import VoterLogin from "./pages/VoterLogin";
 import VoterDashboard from "./pages/VoterDashboard";
+import ReceiptVerifier from "./pages/ReceiptVerifier";
 
-type AppMode = "landing" | "admin" | "voter";
+type AppMode = "landing" | "admin" | "voter" | "verifier";
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>("landing");
@@ -46,12 +47,15 @@ const App: React.FC = () => {
       <div className="container" style={{ textAlign: "center", marginTop: "10vh" }}>
         <h1>Blockchain Voting System</h1>
         <p>Please select your portal</p>
-        <div style={{ display: "flex", justifyContent: "center", gap: "1rem", marginTop: "2rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "2rem", maxWidth: "320px", margin: "2rem auto" }}>
           <button className="btn primary" onClick={() => setMode("voter")}>
             Voter Portal
           </button>
           <button className="btn" onClick={() => setMode("admin")}>
             Admin Portal
+          </button>
+          <button className="btn secondary" style={{ background: "#6b7280", color: "white" }} onClick={() => setMode("verifier")}>
+            Ballot Verifier (E2E-V)
           </button>
         </div>
       </div>
@@ -86,8 +90,11 @@ const App: React.FC = () => {
     return <VoterDashboard token={voterToken} onLogout={handleVoterLogout} />;
   }
 
+  if (mode === "verifier") {
+    return <ReceiptVerifier onBack={() => setMode("landing")} />;
+  }
+
   return null;
 };
 
 export default App;
-
