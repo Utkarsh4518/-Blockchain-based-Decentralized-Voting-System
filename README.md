@@ -1,25 +1,34 @@
 # Blockchain-Based Decentralized Voting System
 
-A complete decentralized voting system designed to enforce the "one vote per address" rule on-chain while providing a Web2-like user experience off-chain. This project features a Solidity smart contract, a Node.js/Express backend with PostgreSQL, and a React frontend, all containerized for easy deployment.
+A complete decentralized voting system designed to enforce the "one vote per address" rule on-chain while providing a Web2-like user experience off-chain. This project features a Solidity smart contract, a Node.js/Express backend with PostgreSQL, and a React frontend.
 
-## System Architecture
+---
 
-The project consists of three main components:
+## Technical Features Implemented
 
-1. **Smart Contract (`/contracts`)**: 
-   - A Solidty contract (`Voting.sol`) that acts as the ultimate source of truth.
-   - Manages multiple elections, candidates, and enforces single voting.
-   - Emits events on all state changes (`ElectionCreated`, `VoteCast`, etc.).
-2. **Backend (`/backend`)**:
-   - Node.js + Express with TypeScript.
-   - PostgreSQL database acting as a fast projection layer for the blockchain data.
-   - Event-driven listener that synchronizes the database with blockchain events using block checkpoints.
-   - Handles voter OTP (One-Time Password) issuance and verification, issuing JWTs.
-   - Enforces wallet-binding to ensure the authenticated user matches the voting wallet.
-3. **Frontend (`/frontend`)**:
-   - React + Vite + TypeScript.
-   - Separate portals for **Admins** (create/start elections, view live off-chain aggregated percentage results) and **Voters** (OTP login, view active elections, cast votes).
-   - Minimal and clean UI without requiring MetaMask for the end-user.
+### 1. Database Table Auto-Initialization
+- When the backend starts, it automatically connects to PostgreSQL and verifies/creates all necessary tables (`users`, `elections`, `candidates`, `voter_participations`, `votes`, `otp_tokens`, `blockchain_transactions`, `event_checkpoints`).
+- If no admin exists, it seeds a default administrator user (`admin@example.com`) and derives their address from the configured `ADMIN_PRIVATE_KEY`.
+
+### 2. Wallet Generation on Registration
+- During registration, a unique Ethereum wallet is dynamically generated for the voter using `ethers.Wallet.createRandom()`.
+- The user is saved off-chain using only their email and user ID. To ensure **absolute voter anonymity**, the voter's private key and wallet address are **never** stored in the database.
+- Instead, the private key and address are returned to the user's browser, which stores them securely in `localStorage`.
+
+### 3. Payment & Gas-Funding Mechanism
+- When a user registers, the backend executes an on-chain transaction sending `1.0 ETH` from the admin wallet (which is funded by default in Ganache) to the voter's new wallet address.
+- This funds the voter's wallet with enough gas to submit their vote directly, fulfilling the payment mechanism requirement.
+
+### 4. 100% Voter Anonymity & Double-Vote Prevention
+- To decouple the voter's identity from their vote choice, the database tracks votes in two separate tables:
+  1. `voter_participations` (records only that `user_id` has voted in `election_id` to prevent double voting).
+  2. `votes` (records only the anonymized transaction details and candidate counts, containing no reference to `user_id` or `wallet_address`).
+- Similarly, the smart contract's events are decoupled:
+  - `VoterVoted(uint256 indexed electionId, address indexed voter)` (omits candidate ID).
+  - `VoteCast(uint256 indexed electionId, uint256 indexed candidateId)` (omits voter address).
+- This ensures that neither the database nor the blockchain links a voter's identity to their candidate choice.
+
+---
 
 ## Project Structure
 
@@ -31,31 +40,28 @@ TopicA/
 └── docker-compose.dev.yml # Local development orchestration (Postgres, Ganache, Backend)
 ```
 
-## Features Implemented
-
-- **Smart Contract Governance**: Only the deployer (Admin) can create and start elections.
-- **Voter Authentication**: OTP via email -> JWT verification.
-- **Eventual Consistency**: The backend listens to Ethereum events and updates a relational database so the frontend can query rich data quickly without hitting the RPC node.
-- **Off-chain Aggregation**: Complex queries (like vote percentages) are calculated in the frontend based on fast PostgreSQL reads.
-- **Wallet Binding**: Transactions are signed securely by the backend using a wallet bound to the voter's identity, preventing hijackers from forging votes.
-- **Double-Vote Prevention**: Enforced at the smart contract level using a `mapping(uint256 => mapping(address => bool)) _hasVoted`.
+---
 
 ## Setup and Running (Local Development)
 
 ### Prerequisites
 - Node.js (v18+)
-- Docker and Docker Compose
+- Ganache CLI (`npm install -g ganache`)
 - Hardhat (`npm install -g hardhat`)
 
-### 1. Start Infrastructure (Ganache & PostgreSQL)
+---
 
-The provided Docker Compose file sets up a local Ganache node and a PostgreSQL instance.
+### Step 1: Start Ganache (Private Blockchain)
+
+Start a local Ganache node and pre-fund the default administrator and voter accounts:
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d postgres ganache
+npx ganache --server.port 8545 --wallet.accounts 0x249f947bdfe9d5d1e063d9b5f29277a8f81618087ee554732c81db6dd2100efd,1000000000000000000000 0x65ecdf42cbf966992adfc3c85d9a026eb08b6b8ce77014c2a7c4aa438ae12e1c,1000000000000000000000
 ```
 
-### 2. Deploy Smart Contract
+---
+
+### Step 2: Deploy the Smart Contract
 
 From the `contracts/` directory:
 
@@ -65,20 +71,31 @@ npm install
 npx hardhat run scripts/deploy.ts --network ganache
 ```
 
-This compiles the contract and deploys it to the Ganache container. It automatically extracts the ABI and Contract Address into `contracts/deployments/ganache.json`, which the backend will read.
+This compiles and deploys the contract to the local Ganache node. It generates the ABI and contract metadata into `contracts/deployments/ganache.json` which the backend reads.
 
-### 3. Start the Backend
+---
 
-The backend will automatically synchronize past events and start listening to the Ganache node. Make sure your `.env` is setup in `/backend` (an `.env.example` is typically provided) with connection strings aligning with the docker network if running fully inside docker, or localhost if running `dev` locally. 
+### Step 3: Start the Backend
 
-**Running backend locally (connecting to dockerized Ganache/Postgres):**
+From the `backend/` directory:
+
 ```bash
 cd backend
 npm install
 npm run dev
 ```
 
-### 4. Start the Frontend
+On startup, the backend will:
+1. Initialize the PostgreSQL schema automatically.
+2. Seed the default admin user (`admin@example.com`).
+3. **Print a valid Admin JWT login token** to the console.
+4. Start listening to smart contract events.
+
+*(Make sure your local PostgreSQL database is running and credentials in `backend/.env` align with your local setup).*
+
+---
+
+### Step 4: Start the Frontend
 
 From the `frontend/` directory:
 
@@ -90,17 +107,19 @@ npm run dev
 
 Navigate to `http://localhost:5173` to access the application.
 
+---
+
 ## Usage Guide
 
-### Admin Flow
-1. Open the UI and select "Admin Portal".
-2. Create a new Election by providing a name, start/end times, and candidates.
-3. Once created, click "Start Last Election" to make it `ACTIVE` on the blockchain.
-4. Using the **Results Panel**, enter the newly created Election ID to monitor live calculated percentages.
+### Admin Portal
+1. Open the UI, select **Admin Portal**.
+2. **Login**: Copy the generated **Admin JWT Token** printed in the backend console logs and paste it into the JWT token textarea.
+3. **Create Election**: Set up an election with a name, start/end dates, and add candidates.
+4. **Start Election**: Click the "Start Last Election" button to active it on the blockchain.
+5. **Results Panel**: Input the election ID to view real-time candidate percentages and voting statistics.
 
-### Voter Flow
-1. Open the UI and select "Voter Portal".
-2. Enter your pre-seeded email to request an OTP. (Check the backend console for the printout).
-3. Verify the OTP to log in.
-4. The dashboard will display all Active elections. Select one to view candidate details.
-5. Choose a candidate and cast your vote. You will receive a transaction hash upon success.
+### Voter Portal
+1. Open the UI, select **Voter Portal**.
+2. **Register**: Click "Register & Get Wallet" and enter your email address. The backend will generate a new wallet, fund it with gas, and save it in your browser.
+3. **Login**: Request an OTP code. Retrieve it from the backend console logs and submit to authenticate.
+4. **Vote**: View active elections, select your candidate of choice, and submit your vote. The transaction is signed and broadcast securely with your local wallet key.

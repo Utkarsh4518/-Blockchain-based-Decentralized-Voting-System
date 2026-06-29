@@ -34,6 +34,28 @@ class BlockchainService {
     return this.voterWallet.address;
   }
 
+  async fundVoterWallet(voterAddress: string, amountEth: string = "0.5"): Promise<string> {
+    try {
+      const tx = await this.adminWallet.sendTransaction({
+        to: voterAddress,
+        value: ethers.parseEther(amountEth),
+      });
+      await tx.wait(1);
+      return tx.hash;
+    } catch (err: any) {
+      this.handleEthersError(err);
+    }
+  }
+
+  async getCandidateVoteCount(electionId: number, candidateId: number): Promise<number> {
+    try {
+      const votes: bigint = await this.contract.getCandidateVoteCount(electionId, candidateId);
+      return Number(votes);
+    } catch (err: any) {
+      this.handleEthersError(err);
+    }
+  }
+
   async getElection(electionId: number) {
     try {
       const [
@@ -116,6 +138,26 @@ class BlockchainService {
   ): Promise<{ txHash: string; blockNumber: number }> {
     try {
       const signer: any = this.contract.connect(this.voterWallet);
+      const tx = await signer.vote(electionId, candidateId);
+      const receipt = await tx.wait(1);
+      if (!receipt) {
+        throw new Error("No receipt returned");
+      }
+      const blockNumber = Number(receipt.blockNumber ?? 0n);
+      return { txHash: tx.hash, blockNumber };
+    } catch (err: any) {
+      this.handleEthersError(err);
+    }
+  }
+
+  async voteWithKey(
+    electionId: number,
+    candidateId: number,
+    privateKey: string
+  ): Promise<{ txHash: string; blockNumber: number }> {
+    try {
+      const voterWallet = new ethers.Wallet(privateKey, this.provider);
+      const signer: any = this.contract.connect(voterWallet);
       const tx = await signer.vote(electionId, candidateId);
       const receipt = await tx.wait(1);
       if (!receipt) {

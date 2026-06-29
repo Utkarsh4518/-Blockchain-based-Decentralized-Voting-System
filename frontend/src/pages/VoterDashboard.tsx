@@ -80,6 +80,11 @@ const VoterDashboard: React.FC<Props> = ({ token, onLogout }) => {
 
     const handleVote = async () => {
         if (selectedElectionId === null || selectedCandidateId === null) return;
+        const privateKey = window.localStorage.getItem("voter_private_key");
+        if (!privateKey) {
+            setError("No voter wallet key found locally. Please register or restore your wallet credentials.");
+            return;
+        }
         try {
             setLoading(true);
             setError(null);
@@ -87,6 +92,7 @@ const VoterDashboard: React.FC<Props> = ({ token, onLogout }) => {
                 `/voter/elections/${selectedElectionId}/vote`,
                 {
                     candidateId: selectedCandidateId,
+                    privateKey,
                 }
             );
             setTxHash(res.data.txHash);

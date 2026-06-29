@@ -39,9 +39,14 @@ contract Voting is Ownable {
 
     event VoteCast(
         uint256 indexed electionId,
-        uint256 indexed candidateId,
+        uint256 indexed candidateId
+    );
+
+    event VoterVoted(
+        uint256 indexed electionId,
         address indexed voter
     );
+
 
     constructor(address initialOwner) Ownable(initialOwner) {
         nextElectionId = 1;
@@ -111,7 +116,8 @@ contract Voting is Ownable {
         candidateVotes[electionId][candidateId] += 1;
         e.totalVotes += 1;
 
-        emit VoteCast(electionId, candidateId, msg.sender);
+        emit VoterVoted(electionId, msg.sender);
+        emit VoteCast(electionId, candidateId);
     }
 
     function getElection(

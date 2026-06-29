@@ -148,14 +148,13 @@ class BlockchainEventListener {
       async (
         electionId: bigint,
         candidateId: bigint,
-        voter: string,
         event
       ) => {
         const blockNumber = Number(event.log.blockNumber);
         const txHash = event.log.transactionHash;
         await this.handleEvent(
           "VoteCast",
-          { electionId, candidateId, voter },
+          { electionId, candidateId },
           txHash,
           blockNumber
         );
@@ -269,10 +268,9 @@ class BlockchainEventListener {
   ) {
     const electionId = Number(args.electionId as bigint);
     const candidateId = Number(args.candidateId as bigint);
-    const voter = args.voter as string;
 
-    const existingVote = await voteRepository.findByTxHash(txHash);
-    if (existingVote) {
+    const txExists = await voteRepository.hasVoteTxBeenRecorded(txHash);
+    if (txExists) {
       // eslint-disable-next-line no-console
       console.log(
         `[Events] VoteCast already recorded for tx=${txHash}, skipping`
@@ -291,8 +289,6 @@ class BlockchainEventListener {
 
     await voteRepository.insertVote({
       electionId: election.id,
-      userId: null,
-      walletAddress: voter,
       candidateId,
       txHash,
       blockNumber,
