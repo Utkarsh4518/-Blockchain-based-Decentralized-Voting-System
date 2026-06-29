@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import pool from "./db";
 import { ethers } from "ethers";
 
@@ -18,9 +19,14 @@ export const initDb = async (): Promise<void> => {
         id UUID PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         wallet_address VARCHAR(42) UNIQUE,
+        public_key TEXT,
         role VARCHAR(50) NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       );
+    `);
+    // Ensure column exists for existing databases
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS public_key TEXT;
     `);
 
     // 2. Create elections table
@@ -32,6 +38,8 @@ export const initDb = async (): Promise<void> => {
         end_time TIMESTAMP NOT NULL,
         status VARCHAR(50) NOT NULL,
         onchain_election_id INTEGER UNIQUE,
+        is_quadratic BOOLEAN DEFAULT FALSE,
+        voter_budget INTEGER DEFAULT 16,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
@@ -126,7 +134,7 @@ export const initDb = async (): Promise<void> => {
         }
       }
 
-      const adminId = ethers.UUID.randomUUID();
+      const adminId = randomUUID();
       await pool.query(
         `
         INSERT INTO users (id, email, wallet_address, role)

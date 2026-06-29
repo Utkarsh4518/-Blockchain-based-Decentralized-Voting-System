@@ -4,8 +4,9 @@ import AdminDashboard from "./pages/AdminDashboard";
 import VoterLogin from "./pages/VoterLogin";
 import VoterDashboard from "./pages/VoterDashboard";
 import ReceiptVerifier from "./pages/ReceiptVerifier";
+import BlockExplorer from "./pages/BlockExplorer";
 
-type AppMode = "landing" | "admin" | "voter" | "verifier";
+type AppMode = "landing" | "admin" | "voter" | "verifier" | "explorer";
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>("landing");
@@ -44,18 +45,21 @@ const App: React.FC = () => {
 
   if (mode === "landing") {
     return (
-      <div className="container" style={{ textAlign: "center", marginTop: "10vh" }}>
+      <div className="container" style={{ textAlign: "center", marginTop: "8vh" }}>
         <h1>Blockchain Voting System</h1>
         <p>Please select your portal</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "2rem", maxWidth: "320px", margin: "2rem auto" }}>
-          <button className="btn primary" onClick={() => setMode("voter")}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "2rem", maxWidth: "340px", margin: "2rem auto" }}>
+          <button className="btn primary" onClick={() => setMode("voter")} style={{ padding: "0.8rem" }}>
             Voter Portal
           </button>
-          <button className="btn" onClick={() => setMode("admin")}>
+          <button className="btn" onClick={() => setMode("admin")} style={{ padding: "0.8rem" }}>
             Admin Portal
           </button>
-          <button className="btn secondary" style={{ background: "#6b7280", color: "white" }} onClick={() => setMode("verifier")}>
+          <button className="btn secondary" style={{ background: "#6b7280", color: "white", padding: "0.8rem" }} onClick={() => setMode("verifier")}>
             Ballot Verifier (E2E-V)
+          </button>
+          <button className="btn secondary" style={{ background: "#0f172a", color: "white", padding: "0.8rem" }} onClick={() => setMode("explorer")}>
+            On-Chain Block Explorer
           </button>
         </div>
       </div>
@@ -92,6 +96,10 @@ const App: React.FC = () => {
 
   if (mode === "verifier") {
     return <ReceiptVerifier onBack={() => setMode("landing")} />;
+  }
+
+  if (mode === "explorer") {
+    return <BlockExplorer onBack={() => setMode("landing")} />;
   }
 
   return null;

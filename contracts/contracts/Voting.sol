@@ -19,6 +19,8 @@ contract Voting is Ownable {
         bool exists;
         uint256 totalVotes;
         uint256[] candidateIds;
+        bool isQuadratic;
+        uint256 voterBudget;
     }
 
     uint256 public nextElectionId;
@@ -60,7 +62,9 @@ contract Voting is Ownable {
         string calldata name,
         uint64 startTime,
         uint64 endTime,
-        uint256[] calldata candidateIds
+        uint256[] calldata candidateIds,
+        bool isQuadratic,
+        uint256 voterBudget
     ) external onlyOwner returns (uint256 electionId) {
         require(bytes(name).length > 0, "Name required");
         require(candidateIds.length > 0, "At least one candidate");
@@ -78,6 +82,8 @@ contract Voting is Ownable {
         e.state = ElectionState.Created;
         e.exists = true;
         e.totalVotes = 0;
+        e.isQuadratic = isQuadratic;
+        e.voterBudget = voterBudget;
 
         for (uint256 i = 0; i < candidateIds.length; i++) {
             e.candidateIds.push(candidateIds[i]);
@@ -160,6 +166,70 @@ contract Voting is Ownable {
         _vote(electionId, candidateId, voter);
     }
 
+    function _voteQuadratic(
+        uint256 electionId,
+        uint256[] calldata candidateIds,
+        uint256[] calldata weights,
+        address voter
+    ) internal {
+        Election storage e = elections[electionId];
+        require(e.exists, "Election not found");
+        require(e.state == ElectionState.Active, "Election not active");
+        require(
+            block.timestamp >= e.startTime && block.timestamp <= e.endTime,
+            "Not in voting window"
+        );
+        require(e.isQuadratic, "Not a quadratic election");
+        require(isEligibleVoter[voter], "Not an eligible voter");
+        require(!_hasVoted[electionId][voter], "Already voted");
+        require(candidateIds.length == weights.length, "Length mismatch");
+        require(candidateIds.length > 0, "Empty vote");
+
+        uint256 totalCost = 0;
+        for (uint256 i = 0; i < candidateIds.length; i++) {
+            require(_isValidCandidate(e, candidateIds[i]), "Invalid candidate");
+            totalCost += weights[i] * weights[i];
+        }
+        require(totalCost <= e.voterBudget, "Exceeded voter budget");
+
+        _hasVoted[electionId][voter] = true;
+
+        for (uint256 i = 0; i < candidateIds.length; i++) {
+            if (weights[i] > 0) {
+                candidateVotes[electionId][candidateIds[i]] += weights[i];
+                e.totalVotes += weights[i];
+                emit VoteCast(electionId, candidateIds[i]);
+            }
+        }
+
+        emit VoterVoted(electionId, voter);
+    }
+
+    function voteQuadratic(
+        uint256 electionId,
+        uint256[] calldata candidateIds,
+        uint256[] calldata weights
+    ) external {
+        _voteQuadratic(electionId, candidateIds, weights, msg.sender);
+    }
+
+    function voteQuadraticWithSignature(
+        uint256 electionId,
+        uint256[] calldata candidateIds,
+        uint256[] calldata weights,
+        bytes calldata signature
+    ) external {
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(electionId, candidateIds, weights, address(this))
+        );
+        bytes32 ethSignedMessageHash = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+        );
+
+        address voter = ECDSA.recover(ethSignedMessageHash, signature);
+        _voteQuadratic(electionId, candidateIds, weights, voter);
+    }
+
     function getElection(
         uint256 electionId
     )
@@ -171,7 +241,9 @@ contract Voting is Ownable {
             uint64 endTime,
             ElectionState state,
             uint256 totalVotes,
-            uint256[] memory candidateIds
+            uint256[] memory candidateIds,
+            bool isQuadratic,
+            uint256 voterBudget
         )
     {
         Election storage e = elections[electionId];
@@ -183,7 +255,9 @@ contract Voting is Ownable {
             e.endTime,
             e.state,
             e.totalVotes,
-            e.candidateIds
+            e.candidateIds,
+            e.isQuadratic,
+            e.voterBudget
         );
     }
 

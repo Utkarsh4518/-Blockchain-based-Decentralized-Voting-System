@@ -11,6 +11,8 @@ interface Props {
     startTime: number;
     endTime: number;
     candidates: CandidateInput[];
+    isQuadratic: boolean;
+    voterBudget: number;
   }) => Promise<void>;
 }
 
@@ -18,6 +20,8 @@ const ElectionForm: React.FC<Props> = ({ onCreate }) => {
   const [name, setName] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [isQuadratic, setIsQuadratic] = useState(false);
+  const [voterBudget, setVoterBudget] = useState(16);
   const [candidates, setCandidates] = useState<CandidateInput[]>([
     { id: 1, name: "" },
   ]);
@@ -67,6 +71,8 @@ const ElectionForm: React.FC<Props> = ({ onCreate }) => {
         startTime: startUnix,
         endTime: endUnix,
         candidates,
+        isQuadratic,
+        voterBudget: isQuadratic ? voterBudget : 0,
       });
       setSuccess("Election created successfully.");
     } catch (err: any) {
@@ -104,6 +110,29 @@ const ElectionForm: React.FC<Props> = ({ onCreate }) => {
           onChange={(e) => setEndTime(e.target.value)}
         />
       </label>
+
+      <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem", alignItems: "center" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1 }}>
+          <input
+            type="checkbox"
+            checked={isQuadratic}
+            onChange={(e) => setIsQuadratic(e.target.checked)}
+            style={{ width: "auto", margin: 0 }}
+          />
+          <span>Enable Quadratic Voting</span>
+        </label>
+        {isQuadratic && (
+          <label className="field" style={{ flex: 1, margin: 0 }}>
+            <span>Credit Budget</span>
+            <input
+              type="number"
+              value={voterBudget}
+              onChange={(e) => setVoterBudget(Number(e.target.value))}
+              min={1}
+            />
+          </label>
+        )}
+      </div>
 
       <div className="field">
         <span>Candidates</span>
@@ -158,4 +187,3 @@ const ElectionForm: React.FC<Props> = ({ onCreate }) => {
 };
 
 export default ElectionForm;
-

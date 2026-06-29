@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import pool from "../config/db";
 import { electionRepository } from "../repositories/election.repository";
 import { candidateRepository } from "../repositories/candidate.repository";
 import { blockchainService } from "../services/blockchain.service";
@@ -9,7 +10,7 @@ export const createElection = async (
   next: NextFunction
 ) => {
   try {
-    const { name, startTime, endTime, candidates } = req.body;
+    const { name, startTime, endTime, candidates, isQuadratic, voterBudget } = req.body;
 
     if (
       typeof name !== "string" ||
@@ -23,8 +24,11 @@ export const createElection = async (
     const start = new Date(startTime * 1000);
     const end = new Date(endTime * 1000);
 
+    const isQuad = !!isQuadratic;
+    const budget = typeof voterBudget === "number" ? voterBudget : 16;
+
     // 1) Store election off-chain
-    const election = await electionRepository.createElection(name, start, end);
+    const election = await electionRepository.createElection(name, start, end, isQuad, budget);
 
     // 2) Store candidates off-chain
     const candidateIds = candidates.map((c: any) => c.id as number);
@@ -42,7 +46,9 @@ export const createElection = async (
       name,
       startTime,
       endTime,
-      candidateIds
+      candidateIds,
+      isQuad,
+      budget
     );
 
     // 4) Link DB to on-chain election
@@ -91,6 +97,26 @@ export const endElection = async (
     return res
       .status(200)
       .json({ onchainElectionId, status: "ended" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAuditLog = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT tx_hash as "txHash", block_number as "blockNumber", event_name as "eventName", event_data as "eventData", created_at as "createdAt"
+      FROM blockchain_transactions
+      ORDER BY block_number DESC, created_at DESC
+      LIMIT 100
+      `
+    );
+    return res.status(200).json(result.rows);
   } catch (err) {
     next(err);
   }

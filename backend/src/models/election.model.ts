@@ -8,5 +8,7 @@ export interface Election {
   status: ElectionStatus;
   onchainElectionId: number | null;
   createdAt: Date;
+  isQuadratic: boolean;
+  voterBudget: number;
 }
 

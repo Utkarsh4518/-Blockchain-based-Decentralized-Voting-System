@@ -27,7 +27,7 @@ const app = createApp();
 
   // Print a valid admin login JWT for ease of local testing
   const adminRes = await pool.query("SELECT id FROM users WHERE role = 'ADMIN' LIMIT 1");
-  if (adminRes.rowCount > 0) {
+  if (adminRes.rows.length > 0) {
     const adminId = adminRes.rows[0].id;
     const token = signToken({ sub: adminId, role: "ADMIN" });
     console.log("\n========================================================");

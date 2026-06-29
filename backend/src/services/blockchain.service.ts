@@ -66,6 +66,8 @@ class BlockchainService {
         state,
         totalVotes,
         candidateIds,
+        isQuadratic,
+        voterBudget,
       ] = await this.contract.getElection(electionId);
 
       return {
@@ -76,6 +78,8 @@ class BlockchainService {
         state,
         totalVotes: Number(totalVotes),
         candidateIds: candidateIds.map((c: bigint) => Number(c)),
+        isQuadratic,
+        voterBudget: Number(voterBudget),
       };
     } catch (err: any) {
       this.handleEthersError(err);
@@ -86,7 +90,9 @@ class BlockchainService {
     name: string,
     startTime: number,
     endTime: number,
-    candidateIds: number[]
+    candidateIds: number[],
+    isQuadratic: boolean = false,
+    voterBudget: number = 16
   ): Promise<number> {
     try {
       const signer: any = this.contract.connect(this.adminWallet);
@@ -94,7 +100,9 @@ class BlockchainService {
         name,
         BigInt(startTime),
         BigInt(endTime),
-        candidateIds
+        candidateIds,
+        isQuadratic,
+        voterBudget
       );
       const receipt = await tx.wait(1);
 
@@ -193,6 +201,31 @@ class BlockchainService {
     try {
       const signer: any = this.contract.connect(this.adminWallet);
       const tx = await signer.voteWithSignature(electionId, candidateId, signature);
+      const receipt = await tx.wait(1);
+      if (!receipt) {
+        throw new Error("No receipt returned");
+      }
+      const blockNumber = Number(receipt.blockNumber ?? 0n);
+      return { txHash: tx.hash, blockNumber };
+    } catch (err: any) {
+      this.handleEthersError(err);
+    }
+  }
+
+  async voteQuadraticWithSignature(
+    electionId: number,
+    candidateIds: number[],
+    weights: number[],
+    signature: string
+  ): Promise<{ txHash: string; blockNumber: number }> {
+    try {
+      const signer: any = this.contract.connect(this.adminWallet);
+      const tx = await signer.voteQuadraticWithSignature(
+        electionId,
+        candidateIds,
+        weights,
+        signature
+      );
       const receipt = await tx.wait(1);
       if (!receipt) {
         throw new Error("No receipt returned");

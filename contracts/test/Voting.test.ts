@@ -17,7 +17,7 @@ describe("Voting", function () {
 
     const txCreate = await voting
       .connect(owner)
-      .createElection(electionName, startTime, endTime, candidateIds);
+      .createElection(electionName, startTime, endTime, candidateIds, false, 0);
     await txCreate.wait();
 
     const electionId = 1;

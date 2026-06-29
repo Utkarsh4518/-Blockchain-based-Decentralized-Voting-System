@@ -109,15 +109,29 @@ export const castVote = async (
     }
 
     const onchainElectionId = Number(req.params.id);
-    const { candidateId, signature } = req.body;
+    const { candidateId, candidateIds, weights, signature } = req.body;
 
-    if (
-      Number.isNaN(onchainElectionId) ||
-      typeof candidateId !== "number" ||
-      typeof signature !== "string" ||
-      signature.length === 0
-    ) {
-      return res.status(400).json({ error: "INVALID_PAYLOAD" });
+    const isQuad = Array.isArray(candidateIds) && Array.isArray(weights);
+
+    if (isQuad) {
+      if (
+        Number.isNaN(onchainElectionId) ||
+        candidateIds.length === 0 ||
+        candidateIds.length !== weights.length ||
+        typeof signature !== "string" ||
+        signature.length === 0
+      ) {
+        return res.status(400).json({ error: "INVALID_PAYLOAD" });
+      }
+    } else {
+      if (
+        Number.isNaN(onchainElectionId) ||
+        typeof candidateId !== "number" ||
+        typeof signature !== "string" ||
+        signature.length === 0
+      ) {
+        return res.status(400).json({ error: "INVALID_PAYLOAD" });
+      }
     }
 
     const election = await electionRepository.findByOnchainId(onchainElectionId);
@@ -135,29 +149,59 @@ export const castVote = async (
     await voteRepository.recordUserParticipation(election.id, user.id);
 
     // 3) Broadcast the vote on-chain using the relayer (adminWallet sponsors gas!)
-    const { txHash, blockNumber } = await blockchainService.voteWithSignature(
-      onchainElectionId,
-      candidateId,
-      signature
-    );
+    let txHash: string;
+    let blockNumber: number;
+
+    if (isQuad) {
+      const result = await blockchainService.voteQuadraticWithSignature(
+        onchainElectionId,
+        candidateIds,
+        weights,
+        signature
+      );
+      txHash = result.txHash;
+      blockNumber = result.blockNumber;
+    } else {
+      const result = await blockchainService.voteWithSignature(
+        onchainElectionId,
+        candidateId,
+        signature
+      );
+      txHash = result.txHash;
+      blockNumber = result.blockNumber;
+    }
 
     // 4) Insert the anonymized vote transaction into the DB
-    await voteRepository.insertVote({
-      electionId: election.id,
-      candidateId,
-      txHash,
-      blockNumber,
-    });
+    if (isQuad) {
+      for (let i = 0; i < candidateIds.length; i++) {
+        if (weights[i] > 0) {
+          await voteRepository.insertVote({
+            electionId: election.id,
+            candidateId: candidateIds[i],
+            txHash,
+            blockNumber,
+          });
+        }
+      }
+    } else {
+      await voteRepository.insertVote({
+        electionId: election.id,
+        candidateId,
+        txHash,
+        blockNumber,
+      });
+    }
 
     // 5) Generate a secure cryptographic receipt key for E2E verification
+    const inputPayload = isQuad ? `${candidateIds.join(",")}-${weights.join(",")}` : `${candidateId}`;
     const receiptKey = crypto
       .createHash("sha256")
-      .update(`${user.id}-${candidateId}-${txHash}`)
+      .update(`${user.id}-${inputPayload}-${txHash}`)
       .digest("hex");
 
     return res.status(202).json({
       electionId: onchainElectionId,
-      candidateId,
+      candidateId: isQuad ? null : candidateId,
       txHash,
       receiptKey,
     });

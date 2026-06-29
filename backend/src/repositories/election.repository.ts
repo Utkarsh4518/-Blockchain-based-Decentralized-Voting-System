@@ -6,16 +6,18 @@ class ElectionRepository {
   async createElection(
     name: string,
     startTime: Date,
-    endTime: Date
+    endTime: Date,
+    isQuadratic: boolean = false,
+    voterBudget: number = 16
   ): Promise<Election> {
     const id = randomUUID();
     const result = await pool.query(
       `
-      INSERT INTO elections (id, name, start_time, end_time, status)
-      VALUES ($1, $2, $3, $4, 'CREATED')
-      RETURNING id, name, start_time, end_time, status, onchain_election_id, created_at
+      INSERT INTO elections (id, name, start_time, end_time, status, is_quadratic, voter_budget)
+      VALUES ($1, $2, $3, $4, 'CREATED', $5, $6)
+      RETURNING id, name, start_time, end_time, status, onchain_election_id, is_quadratic, voter_budget, created_at
       `,
-      [id, name, startTime, endTime]
+      [id, name, startTime, endTime, isQuadratic, voterBudget]
     );
     const row = result.rows[0];
     return {
@@ -26,6 +28,8 @@ class ElectionRepository {
       status: row.status,
       onchainElectionId: row.onchain_election_id,
       createdAt: row.created_at,
+      isQuadratic: row.is_quadratic,
+      voterBudget: row.voter_budget,
     };
   }
 
@@ -57,7 +61,7 @@ class ElectionRepository {
   async findById(id: string): Promise<Election | null> {
     const result = await pool.query(
       `
-      SELECT id, name, start_time, end_time, status, onchain_election_id, created_at
+      SELECT id, name, start_time, end_time, status, onchain_election_id, is_quadratic, voter_budget, created_at
       FROM elections
       WHERE id = $1
       `,
@@ -73,13 +77,15 @@ class ElectionRepository {
       status: row.status,
       onchainElectionId: row.onchain_election_id,
       createdAt: row.created_at,
+      isQuadratic: row.is_quadratic,
+      voterBudget: row.voter_budget,
     };
   }
 
   async findByOnchainId(onchainId: number): Promise<Election | null> {
     const result = await pool.query(
       `
-      SELECT id, name, start_time, end_time, status, onchain_election_id, created_at
+      SELECT id, name, start_time, end_time, status, onchain_election_id, is_quadratic, voter_budget, created_at
       FROM elections
       WHERE onchain_election_id = $1
       `,
@@ -95,13 +101,15 @@ class ElectionRepository {
       status: row.status,
       onchainElectionId: row.onchain_election_id,
       createdAt: row.created_at,
+      isQuadratic: row.is_quadratic,
+      voterBudget: row.voter_budget,
     };
   }
 
   async findActiveElections(): Promise<Election[]> {
     const result = await pool.query(
       `
-      SELECT id, name, start_time, end_time, status, onchain_election_id, created_at
+      SELECT id, name, start_time, end_time, status, onchain_election_id, is_quadratic, voter_budget, created_at
       FROM elections
       WHERE status = 'ACTIVE'
       ORDER BY start_time DESC
@@ -115,9 +123,10 @@ class ElectionRepository {
       status: row.status,
       onchainElectionId: row.onchain_election_id,
       createdAt: row.created_at,
+      isQuadratic: row.is_quadratic,
+      voterBudget: row.voter_budget,
     }));
   }
 }
 
 export const electionRepository = new ElectionRepository();
-

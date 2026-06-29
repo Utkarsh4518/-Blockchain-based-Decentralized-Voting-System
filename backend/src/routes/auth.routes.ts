@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { requestOtp, verifyOtp, register } from "../controllers/auth.controller";
+import { register, requestOtp, verifyOtp, requestChallenge, verifyChallenge } from "../controllers/auth.controller";
 
 const router = Router();
 
 router.post("/register", register);
-router.post("/request-otp", requestOtp);
-router.post("/verify-otp", verifyOtp);
+router.post("/otp/request", requestOtp);
+router.post("/otp/verify", verifyOtp);
+router.post("/passkey/challenge", requestChallenge);
+router.post("/passkey/verify", verifyChallenge);
 
 export default router;
-
